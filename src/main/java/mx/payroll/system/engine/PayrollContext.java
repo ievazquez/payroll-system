@@ -48,8 +48,9 @@ public class PayrollContext {
 
     // New method to expose all variables (fixed and calculated) for SpEL
     public Map<String, BigDecimal> getVariables() {
-        Map<String, BigDecimal> allVariables = new HashMap<>(fixedValues);
-        calculatedValues.forEach((key, value) -> allVariables.merge(key, value, (oldVal, newVal) -> newVal)); // Calculated overrides fixed
+        Map<String, BigDecimal> allVariables = new HashMap<>(calculatedValues);
+        // Fixed values override calculated (matching getValue() behavior)
+        allVariables.putAll(fixedValues);
         return allVariables;
     }
 }
