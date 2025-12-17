@@ -59,6 +59,10 @@ CREATE TABLE IF NOT EXISTS payroll_results (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Unique constraint to prevent duplicate processing of same employee in same period
+CREATE UNIQUE INDEX IF NOT EXISTS idx_payroll_unique_employee_period
+ON payroll_results(employee_id, period_id);
+
 -- The Details (The Lines in the Paystub)
 CREATE TABLE IF NOT EXISTS payroll_result_details (
     id BIGSERIAL PRIMARY KEY,
