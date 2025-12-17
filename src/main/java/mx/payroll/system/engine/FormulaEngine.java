@@ -76,7 +76,15 @@ public class FormulaEngine {
             
             // Inject all variables from the PayrollContext (fixed and calculated) flattened
             // This allows formulas to use #SALARY_BASE, #ISR, etc. directly without method calls
-            payrollContext.getVariables().forEach(spelContext::setVariable);
+            Map<String, BigDecimal> availableVariables = payrollContext.getVariables();
+
+            // DEBUG: Log available variables for problematic employees
+            if (payrollContext.getEmployee() != null && payrollContext.getEmployee().getId() == 49813) {
+                System.out.println("DEBUG - Employee 49813 available variables: " + availableVariables.keySet());
+                System.out.println("DEBUG - Evaluating formula: " + formula);
+            }
+
+            availableVariables.forEach(spelContext::setVariable);
 
             // Add employee-specific variables
             if (payrollContext.getEmployee() != null) {

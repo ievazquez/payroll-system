@@ -33,7 +33,15 @@ public class DynamicDbRule implements PayrollRule {
         // Here we evaluate the expression using the FormulaEngine and store the result
         // The context will provide the variables needed for evaluation
         // Assuming context.getCalculatedValues() returns a Map<String, BigDecimal> suitable for SpEL
-        BigDecimal result = formulaEngine.evaluate(expression, context); // Pass the full context
-        context.addCalculation(code, result); // Add the result to the context
+        try {
+            BigDecimal result = formulaEngine.evaluate(expression, context); // Pass the full context
+            context.addCalculation(code, result); // Add the result to the context
+        } catch (Exception e) {
+            // DEBUG: Log which concept/formula is failing
+            System.err.println("ERROR evaluating concept " + code + " with formula: " + expression);
+            System.err.println("Employee ID: " + (context.getEmployee() != null ? context.getEmployee().getId() : "unknown"));
+            System.err.println("Available variables: " + context.getVariables().keySet());
+            throw e; // Re-throw to maintain original behavior
+        }
     }
 }
