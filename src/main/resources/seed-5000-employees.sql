@@ -31,7 +31,7 @@ DECLARE
     sueldo_base NUMERIC(19,4);
     dias_atras INTEGER;
 BEGIN
-    FOR i IN 4..5000 LOOP
+    FOR i IN 1..15000 LOOP
         -- Generar nombre completo aleatorio
         nombre_completo := nombres[1 + floor(random() * array_length(nombres, 1))::int] || ' ' ||
                           apellidos[1 + floor(random() * array_length(apellidos, 1))::int] || ' ' ||
@@ -58,7 +58,7 @@ BEGIN
             ELSE 30000 + (random() * 20000)::numeric
         END;
 
-        -- Asignar sueldo base al empleado
+        -- Asignar sueldo base al empleado (OBLIGATORIO para todos)
         INSERT INTO employee_concept_values (employee_id, concept_code, amount, effective_date, end_date)
         VALUES (
             (SELECT id FROM employees WHERE employee_number = 'EMP-' || LPAD(i::TEXT, 6, '0')),
@@ -67,6 +67,53 @@ BEGIN
             fecha_contrato,
             NULL
         );
+
+        -- VALES DE DESPENSA adicionales (35% de empleados reciben vales fijos adicionales)
+        -- Distribución: empleados con mayores sueldos tienden a tener más vales
+        IF random() < 0.35 THEN
+            INSERT INTO employee_concept_values (employee_id, concept_code, amount, effective_date, end_date)
+            VALUES (
+                (SELECT id FROM employees WHERE employee_number = 'EMP-' || LPAD(i::TEXT, 6, '0')),
+                'P004', -- Vales de Despensa
+                CASE
+                    WHEN sueldo_base < 10000 THEN ROUND(300 + (random() * 500)::numeric, 2)  -- 300-800 pesos
+                    WHEN sueldo_base < 20000 THEN ROUND(600 + (random() * 900)::numeric, 2)  -- 600-1500 pesos
+                    ELSE ROUND(1000 + (random() * 1500)::numeric, 2)  -- 1000-2500 pesos
+                END,
+                fecha_contrato,
+                NULL
+            );
+        END IF;
+
+        -- AMORTIZACIÓN INFONAVIT (25% de empleados tienen crédito hipotecario)
+        -- Monto variable según el sueldo y antigüedad
+        IF random() < 0.25 THEN
+            INSERT INTO employee_concept_values (employee_id, concept_code, amount, effective_date, end_date)
+            VALUES (
+                (SELECT id FROM employees WHERE employee_number = 'EMP-' || LPAD(i::TEXT, 6, '0')),
+                'D003', -- Amortización Infonavit
+                CASE
+                    WHEN sueldo_base < 12000 THEN ROUND(500 + (random() * 700)::numeric, 2)   -- 500-1200 pesos
+                    WHEN sueldo_base < 25000 THEN ROUND(900 + (random() * 1100)::numeric, 2)  -- 900-2000 pesos
+                    ELSE ROUND(1500 + (random() * 1500)::numeric, 2)  -- 1500-3000 pesos
+                END,
+                fecha_contrato,
+                NULL
+            );
+        END IF;
+
+        -- FONDO DE AHORRO PERSONALIZADO (18% tienen un fondo de ahorro mayor al estándar)
+        -- Porcentaje variable: entre 6% y 12% del sueldo base
+        IF random() < 0.18 THEN
+            INSERT INTO employee_concept_values (employee_id, concept_code, amount, effective_date, end_date)
+            VALUES (
+                (SELECT id FROM employees WHERE employee_number = 'EMP-' || LPAD(i::TEXT, 6, '0')),
+                'D004', -- Fondo de Ahorro (sobrescribe el 5% estándar de la fórmula)
+                ROUND((sueldo_base * (0.06 + random() * 0.06))::numeric, 2), -- Entre 6% y 12% del sueldo
+                fecha_contrato,
+                NULL
+            );
+        END IF;
 
         -- Mostrar progreso cada 500 empleados
         IF i % 500 = 0 THEN
@@ -87,12 +134,32 @@ SELECT
 FROM employees
 WHERE employee_number LIKE 'EMP-%';
 
--- Verificar sueldos asignados
+-- Verificar conceptos asignados por tipo
 SELECT
-    COUNT(*) as empleados_con_sueldo,
-    ROUND(MIN(amount), 2) as sueldo_minimo,
-    ROUND(MAX(amount), 2) as sueldo_maximo,
-    ROUND(AVG(amount), 2) as sueldo_promedio
+    concept_code,
+    CASE concept_code
+        WHEN 'P001' THEN 'Sueldo Ordinario'
+        WHEN 'P004' THEN 'Vales de Despensa'
+        WHEN 'D003' THEN 'Amortización Infonavit'
+        WHEN 'D004' THEN 'Fondo de Ahorro'
+        ELSE 'Otro'
+    END as concepto,
+    COUNT(*) as total_empleados,
+    ROUND(MIN(amount), 2) as monto_minimo,
+    ROUND(MAX(amount), 2) as monto_maximo,
+    ROUND(AVG(amount), 2) as monto_promedio,
+    ROUND((COUNT(*) * 100.0 / (SELECT COUNT(*) FROM employees WHERE employee_number LIKE 'EMP-%')), 2) as porcentaje_empleados
 FROM employee_concept_values
-WHERE concept_code = 'P001'
-  AND employee_id IN (SELECT id FROM employees WHERE employee_number LIKE 'EMP-%');
+WHERE employee_id IN (SELECT id FROM employees WHERE employee_number LIKE 'EMP-%')
+GROUP BY concept_code
+ORDER BY concept_code;
+
+-- Resumen de conceptos por empleado
+SELECT
+    (SELECT COUNT(*) FROM employees WHERE employee_number LIKE 'EMP-%') as total_empleados,
+    COUNT(DISTINCT CASE WHEN concept_code = 'P001' THEN employee_id END) as con_sueldo,
+    COUNT(DISTINCT CASE WHEN concept_code = 'P004' THEN employee_id END) as con_vales_despensa,
+    COUNT(DISTINCT CASE WHEN concept_code = 'D003' THEN employee_id END) as con_infonavit,
+    COUNT(DISTINCT CASE WHEN concept_code = 'D004' THEN employee_id END) as con_fondo_ahorro
+FROM employee_concept_values
+WHERE employee_id IN (SELECT id FROM employees WHERE employee_number LIKE 'EMP-%');

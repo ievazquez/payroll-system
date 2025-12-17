@@ -44,4 +44,16 @@ public interface EmployeeRepository extends JpaRepository<Employee, Integer> {
      * Busca empleados contratados entre dos fechas
      */
     List<Employee> findByHireDateBetween(LocalDate startDate, LocalDate endDate);
+
+    /**
+     * Busca empleados por estado activo
+     */
+    List<Employee> findByActive(boolean active);
+
+    /**
+     * Busca empleados activos
+     */
+    default List<Employee> findByActiveTrue() {
+        return findByActive(true);
+    }
 }

@@ -5,11 +5,9 @@ import mx.payroll.system.domain.repository.PayrollPeriodRepository;
 import mx.payroll.system.dto.PayrollPeriodRequestDTO;
 import mx.payroll.system.processing.dispatcher.PayrollDispatcher;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/payroll/periods")
@@ -23,6 +21,31 @@ public class PayrollController {
         this.payrollDispatcher = payrollDispatcher;
     }
 
+    /**
+     * GET /api/payroll/periods
+     * Lista todos los periodos de nómina
+     */
+    @GetMapping
+    public ResponseEntity<List<PayrollPeriod>> getAllPeriods() {
+        List<PayrollPeriod> periods = payrollPeriodRepository.findAll();
+        return ResponseEntity.ok(periods);
+    }
+
+    /**
+     * GET /api/payroll/periods/{id}
+     * Obtiene un periodo específico por ID
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<PayrollPeriod> getPeriodById(@PathVariable Long id) {
+        return payrollPeriodRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * POST /api/payroll/periods
+     * Crea un nuevo periodo de nómina
+     */
     @PostMapping
     public ResponseEntity<PayrollPeriod> createPeriod(@RequestBody PayrollPeriodRequestDTO request) {
         PayrollPeriod period = new PayrollPeriod();
@@ -39,6 +62,10 @@ public class PayrollController {
         return ResponseEntity.ok(savedPeriod);
     }
 
+    /**
+     * POST /api/payroll/periods/{id}/calculate
+     * Dispara el cálculo de nómina para un periodo específico
+     */
     @PostMapping("/{id}/calculate")
     public ResponseEntity<PayrollPeriod> calculatePeriod(@PathVariable Long id) {
         return payrollPeriodRepository.findById(id)

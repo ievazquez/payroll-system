@@ -22,22 +22,22 @@ public class TaxTable {
     @Column(name = "lower_limit", nullable = false, precision = 19, scale = 4)
     private BigDecimal lowerLimit;
 
-    @Column(name = "upper_limit", precision = 19, scale = 4) // Upper limit can be null for the last bracket
-    private BigDecimal upperLimit;
+    @Column(name = "fixed_fee", nullable = false, precision = 19, scale = 4)
+    private BigDecimal fixedFee;
 
-    @Column(name = "rate", nullable = false, precision = 10, scale = 4)
-    private BigDecimal rate;
+    @Column(name = "percent_excess", nullable = false, precision = 10, scale = 4)
+    private BigDecimal percentExcess;
 
     // Constructors
     public TaxTable() {
     }
 
-    public TaxTable(Integer fiscalYear, String tableType, BigDecimal lowerLimit, BigDecimal upperLimit, BigDecimal rate) {
+    public TaxTable(Integer fiscalYear, String tableType, BigDecimal lowerLimit, BigDecimal fixedFee, BigDecimal percentExcess) {
         this.fiscalYear = fiscalYear;
         this.tableType = tableType;
         this.lowerLimit = lowerLimit;
-        this.upperLimit = upperLimit;
-        this.rate = rate;
+        this.fixedFee = fixedFee;
+        this.percentExcess = percentExcess;
     }
 
     // Getters and Setters
@@ -73,20 +73,20 @@ public class TaxTable {
         this.lowerLimit = lowerLimit;
     }
 
-    public BigDecimal getUpperLimit() {
-        return upperLimit;
+    public BigDecimal getFixedFee() {
+        return fixedFee;
     }
 
-    public void setUpperLimit(BigDecimal upperLimit) {
-        this.upperLimit = upperLimit;
+    public void setFixedFee(BigDecimal fixedFee) {
+        this.fixedFee = fixedFee;
     }
 
-    public BigDecimal getRate() {
-        return rate;
+    public BigDecimal getPercentExcess() {
+        return percentExcess;
     }
 
-    public void setRate(BigDecimal rate) {
-        this.rate = rate;
+    public void setPercentExcess(BigDecimal percentExcess) {
+        this.percentExcess = percentExcess;
     }
 
     @Override
@@ -111,8 +111,8 @@ public class TaxTable {
                 ", fiscalYear=" + fiscalYear +
                 ", tableType='" + tableType + '\'' +
                 ", lowerLimit=" + lowerLimit +
-                ", upperLimit=" + upperLimit +
-                ", rate=" + rate +
+                ", fixedFee=" + fixedFee +
+                ", percentExcess=" + percentExcess +
                 '}';
     }
 }

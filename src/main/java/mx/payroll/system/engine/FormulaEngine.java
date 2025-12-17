@@ -34,6 +34,8 @@ public class FormulaEngine {
 
     public FormulaEngine(TaxService taxService) {
         this.taxService = taxService;
+        // Inject TaxService into PayrollFunctions for ISR calculations
+        PayrollFunctions.setTaxService(taxService);
     }
 
     /**

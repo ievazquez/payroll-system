@@ -1,31 +1,84 @@
-  Configuración creada:
-  - PostgreSQL: localhost:5432/payroll_db
-  - RabbitMQ: localhost:5672
-  - Puerto servidor: 8080
+# Guía de Ejecución - PayrollSystem
 
-  Próximos pasos:
+## Modo 1: Ejecutar todo con Docker (Recomendado)
 
-  1. Iniciar PostgreSQL:
-  docker run --name postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=payroll_db -p 5432:5432 -d postgres
+### Iniciar todos los servicios
+```bash
+docker-compose up --build
+```
 
-  2. Iniciar RabbitMQ:
-  docker run --name rabbitmq -p 5672:5672 -p 15672:15672 -d rabbitmq:management
+### Reiniciar solo la aplicación
+```bash
+docker-compose up --build -d payroll_app
+```
 
-  3. Ejecutar la aplicación:
-  cd /home/docker/containers/payroll-system
-  ./mvnw spring-boot:run
+### Ver logs
+```bash
+docker-compose logs -f payroll_app
+```
 
+### Detener todo
+```bash
+docker-compose down
+# O eliminar volúmenes también
+docker-compose down -v
+```
 
-###
- 🚀 Para probar:
+---
 
-  Con Docker:
-  docker-compose down -v  # Elimina la BD anterior
-  docker-compose up --build
+## Modo 2: Ejecutar en consola (sin servidor web)
 
-  Local:
-  # Asegúrate que PostgreSQL esté corriendo
-  ./mvnw spring-boot:run
+La aplicación está configurada con `spring.main.web-application-type=none` para ejecutarse en modo consola.
+
+### Paso 1: Iniciar PostgreSQL y RabbitMQ
+```bash
+docker-compose up -d postgres_db rabbitmq_broker
+```
+
+### Paso 2: Ejecutar la aplicación en modo consola
+
+**Opción A: Usar el script**
+```bash
+./run-console.sh
+```
+
+**Opción B: Manualmente con variables de entorno**
+```bash
+SPRING_DATASOURCE_USERNAME=payroll_user \
+SPRING_DATASOURCE_PASSWORD=secret_password \
+./mvnw spring-boot:run
+```
+
+### Credenciales importantes:
+- **Docker PostgreSQL**: `payroll_user` / `secret_password`
+- **Local PostgreSQL (por defecto)**: `postgres` / `postgres`
+
+---
+
+## Modo 3: Ejecutar en modo servidor web
+
+### Paso 1: Comentar la línea en application.properties
+```properties
+# spring.main.web-application-type=none
+```
+
+### Paso 2: Iniciar servicios
+```bash
+docker-compose up -d postgres_db rabbitmq_broker
+```
+
+### Paso 3: Ejecutar aplicación
+```bash
+SPRING_DATASOURCE_USERNAME=payroll_user \
+SPRING_DATASOURCE_PASSWORD=secret_password \
+./mvnw spring-boot:run
+```
+
+### Paso 4: Probar endpoints
+```bash
+curl http://localhost:8080/api/payroll/periods
+curl http://localhost:8080/api/employees
+```
 
 
 
@@ -100,6 +153,8 @@ curl -X POST http://localhost:8080/api/payroll/periods \
 #trigger
 curl -X POST http://localhost:8080/api/payroll/periods/1/calculate
 
+curl -X GET http://localhost:8080/api/monitor/1/progress
+
 #logs
  docker-compose logs --tail=100 payroll_app
 
@@ -114,3 +169,104 @@ curl -X POST http://localhost:8080/api/payroll/periods/1/calculate
 
  docker exec payroll_postgres psql postgresql://payroll_user:secret_password@localhost/payroll_db -c "SELECT │
 │ count(*) FROM payroll_results;"
+
+
+
+  docker-compose exec -T postgres_db psql -U payroll_user -d payroll_db <<EOF
+  -- Ver empleados duplicados en el periodo 2
+  SELECT
+      employee_id,
+      COUNT(*) as veces_procesado,
+      array_agg(id) as result_ids
+  FROM payroll_results
+  WHERE period_id = '2'
+  GROUP BY employee_id
+  HAVING COUNT(*) > 1
+  ORDER BY COUNT(*) DESC
+  LIMIT 20;
+
+  -- Estadísticas generales
+  SELECT
+      COUNT(DISTINCT employee_id) as empleados_unicos,
+      COUNT(*) as total_registros,
+      COUNT(*) - COUNT(DISTINCT employee_id) as duplicados
+  FROM payroll_results
+  WHERE period_id = '2';
+  EOF
+
+
+
+
+   docker-compose exec -T postgres_db psql -U payroll_user -d payroll_db <<'EOF'
+   -- Ver cuántos empleados únicos se procesaron vs esperados
+   SELECT
+       'Total esperado' as tipo,
+       total_expected as cantidad
+   FROM payroll_periods
+   WHERE period_identifier = 'Nómina Enero 2025 - Q1'
+
+   UNION ALL
+
+   SELECT
+       'Empleados únicos procesados' as tipo,
+       COUNT(DISTINCT employee_id) as cantidad
+   FROM payroll_results
+   WHERE period_id = 'Nómina Enero 2025 - Q1'
+
+   UNION ALL
+
+   SELECT
+       'Total registros creados' as tipo,
+       COUNT(*) as cantidad
+   FROM payroll_results
+   WHERE period_id = 'Nómina Enero 2025 - Q1'
+
+   UNION ALL
+
+   SELECT
+       'Empleados activos en BD' as tipo,
+       COUNT(*) as cantidad
+   FROM employees
+   WHERE active = true;
+
+   -- Ver si hay empleados procesados que no estén activos
+   SELECT
+       'Empleados inactivos procesados' as tipo,
+       COUNT(DISTINCT pr.employee_id) as cantidad
+   FROM payroll_results pr
+   LEFT JOIN employees e ON pr.employee_id = e.id
+   WHERE pr.period_id = 'Nómina Enero 2025 - Q1'
+   AND (e.active = false OR e.id IS NULL);
+   EOF
+
+
+   docker-compose logs payroll_app | grep -E "(Iniciando Dispatch|Worker procesando lote|Lote.*finalizado)"
+
+
+   docker-compose logs payroll_app 2>&1 | grep -A 2 "Missing variables" | head -15
+
+
+
+   docker-compose logs payroll_app 2>&1 | grep "Missing variables.*TOTAL_EARNINGS" |
+
+   docker-compose logs payroll_app 2>&1 | grep "Missing variables.*TOTAL_EARNINGS" |
+
+
+
+
+##ejecutar
+./mvnw spring-boot:run
+
+
+docker-compose up -d postgres_db rabbitmq_broker
+
+
+
+  Ahora el script debería ejecutarse sin errores. Para probar:
+
+  # Ejecutar el seed desde Docker
+  docker exec payroll_postgres psql -U payroll_user -d payroll_db -f /path/to/seed-5000-employees.sql
+
+  # O si está en el contenedor:
+  docker cp src/main/resources/seed-5000-employees.sql payroll_postgres:/tmp/
+  docker exec payroll_postgres psql -U payroll_user -d payroll_db -f /tmp/seed-5000-employees.sql
