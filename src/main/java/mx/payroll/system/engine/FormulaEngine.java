@@ -78,13 +78,38 @@ public class FormulaEngine {
             // This allows formulas to use #SALARY_BASE, #ISR, etc. directly without method calls
             Map<String, BigDecimal> availableVariables = payrollContext.getVariables();
 
-            // DEBUG: Log available variables for problematic employees
-            if (payrollContext.getEmployee() != null && payrollContext.getEmployee().getId() == 49813) {
-                System.out.println("DEBUG - Employee 49813 available variables: " + availableVariables.keySet());
-                System.out.println("DEBUG - Evaluating formula: " + formula);
+            // Extract variable names from formula (pattern: #VARIABLE_NAME)
+            java.util.Set<String> formulaVariables = new java.util.HashSet<>();
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("#([A-Z0-9_]+)");
+            java.util.regex.Matcher matcher = pattern.matcher(formula);
+            while (matcher.find()) {
+                String varName = matcher.group(1);
+                // Skip function names and special variables
+                if (!varName.equals("HIRE_DATE") && !varName.equals("impuestos")) {
+                    formulaVariables.add(varName);
+                }
             }
 
-            availableVariables.forEach(spelContext::setVariable);
+            // Identify missing variables
+            java.util.Set<String> missingVariables = new java.util.HashSet<>(formulaVariables);
+            missingVariables.removeAll(availableVariables.keySet());
+
+            // Log missing variables (converted to ZERO)
+            if (!missingVariables.isEmpty() && payrollContext.getEmployee() != null) {
+                System.err.println("⚠️  Employee " + payrollContext.getEmployee().getId() +
+                    " - Missing variables (will use ZERO): " + missingVariables +
+                    " in formula: " + formula);
+            }
+
+            // Inject variables, converting null to ZERO
+            availableVariables.forEach((key, value) -> {
+                spelContext.setVariable(key, value != null ? value : BigDecimal.ZERO);
+            });
+
+            // Inject missing variables as ZERO
+            for (String missingVar : missingVariables) {
+                spelContext.setVariable(missingVar, BigDecimal.ZERO);
+            }
 
             // Add employee-specific variables
             if (payrollContext.getEmployee() != null) {
